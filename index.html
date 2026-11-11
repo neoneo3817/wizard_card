@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>스마트 카드 지출 목표 달성</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Noto+Sans+KR:wght@300;400;600&display=swap');
+
+    /* 모바일 화면 고정 및 스크롤 방지 */
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      position: fixed;
+      font-family: 'Noto Sans KR', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .font-serif-title {
+      font-family: 'Cinzel', serif;
+    }
+
+    /* 동적 그래디언트 배경 */
+    .bg-gradient-magic {
+      background: radial-gradient(circle at 50% 50%, var(--bg-center, #5c3616) 0%, var(--bg-mid, #2b1609) 50%, var(--bg-outer, #0e0602) 100%);
+      transition: background 0.8s ease;
+    }
+
+    /* 캐릭터 호흡 & 플로팅 애니메이션 */
+    @keyframes floatMagic {
+      0% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-10px) rotate(0.5deg); }
+      100% { transform: translateY(0px) rotate(0deg); }
+    }
+
+    /* 광원 아우라 펄스 효과 */
+    @keyframes pulseAura {
+      0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+      50% { opacity: 0.9; transform: translate(-50%, -50%) scale(1.08); }
+    }
+
+    .character-container {
+      animation: floatMagic 5s ease-in-out infinite;
+    }
+
+    .magic-aura {
+      position: absolute;
+      top: 45%;
+      left: 50%;
+      width: 480px;
+      height: 480px;
+      background: radial-gradient(circle, rgba(212, 148, 70, 0.45) 0%, rgba(140, 90, 43, 0.2) 45%, rgba(0, 0, 0, 0) 70%);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 5;
+      animation: pulseAura 4s ease-in-out infinite;
+      filter: blur(25px);
+      transition: width 0.3s, height 0.3s;
+    }
+
+    /* 흰색 배경 투과 */
+    .blend-multiply {
+      mix-blend-mode: multiply;
+      filter: contrast(1.08) brightness(1.02);
+    }
+
+    /* Glassmorphism 패널 UI */
+    .glass-panel {
+      background: rgba(26, 15, 10, 0.7);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(212, 160, 89, 0.25);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    input[type=range] {
+      accent-color: #d49446;
+    }
+
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="w-screen h-screen relative bg-black text-amber-100 flex flex-col items-center justify-between overflow-hidden">
+
+  <!-- 동적 브라운 그래디언트 배경 -->
+  <div id="gradientBg" class="absolute inset-0 bg-gradient-magic z-0"></div>
+
+  <!-- 파티클 & 마법 궤적 이펙트 Canvas -->
+  <canvas id="magicCanvas" class="absolute inset-0 z-10 pointer-events-none"></canvas>
+
+  <!-- 캐릭터 뒤 마법 광원 아우라 -->
+  <div id="magicAura" class="magic-aura"></div>
+
+  <!-- 상단 헤더: 카드 선택 / 이모티콘 컨트롤 버튼 -->
+  <header class="relative z-30 w-full max-w-md px-6 pt-6 flex flex-col items-center gap-3">
+    <div class="w-full flex justify-between items-center">
+      <!-- 카드 추가/관리 버튼 💳 -->
+      <button id="cardListBtn" class="w-11 h-11 rounded-full glass-panel flex items-center justify-center text-amber-300 hover:scale-110 active:scale-95 transition-all text-lg shadow-lg" title="카드 관리">
+        💳
+      </button>
+
+      <!-- 현재 카드 표시 -->
+      <div id="currentCardIndicator" class="font-serif-title text-amber-200 text-xs tracking-widest bg-amber-950/50 px-4 py-1.5 rounded-full border border-amber-500/30 flex items-center gap-1.5 shadow-md">
+        <span>✨</span>
+        <span id="cardNameDisplay">메인 카드</span>
+        <span class="text-amber-400/80">(<span id="currentStepBadge">1단계</span>/5)</span>
+      </div>
+
+      <!-- 마법 효과 설정 토글 버튼 🪄 -->
+      <button id="toggleControlsBtn" class="w-11 h-11 rounded-full glass-panel flex items-center justify-center text-amber-300 hover:scale-110 active:scale-95 transition-all text-lg shadow-lg" title="마법 설정">
+        🪄
+      </button>
+    </div>
+
+    <!-- 5등분 단계별 프로그레스 바 -->
+    <div class="w-full grid grid-cols-5 gap-1.5 px-2">
+      <div class="step-indicator h-1.5 rounded-full bg-amber-500/30 transition-all duration-300" data-step="1"></div>
+      <div class="step-indicator h-1.5 rounded-full bg-amber-500/30 transition-all duration-300" data-step="2"></div>
+      <div class="step-indicator h-1.5 rounded-full bg-amber-500/30 transition-all duration-300" data-step="3"></div>
+      <div class="step-indicator h-1.5 rounded-full bg-amber-500/30 transition-all duration-300" data-step="4"></div>
+      <div class="step-indicator h-1.5 rounded-full bg-amber-500/30 transition-all duration-300" data-step="5"></div>
+    </div>
+  </header>
+
+  <!-- 중앙 캐릭터 영역 (5단계 달성도에 따라 GIF 및 상태 이모티콘 변경) -->
+  <main class="relative z-20 flex flex-col items-center justify-center pointer-events-auto my-auto cursor-crosshair">
+    <div class="character-container relative flex items-center justify-center">
+      <img 
+        id="characterGif" 
+        src="stage1.gif" 
+        alt="Goal Character" 
+        class="blend-multiply max-w-[250px] sm:max-w-xs md:max-w-sm h-auto object-contain drop-shadow-[0_15px_25px_rgba(0,0,0,0.6)] transition-all duration-500"
+        onerror="this.onerror=null; this.src='https://placehold.co/400x400/ffffff/333333?text=Stage+Character';"
+      />
+    </div>
+    <div id="statusEmoji" class="mt-2 text-2xl drop-shadow-md animate-bounce">
+      🌱
+    </div>
+  </main>
+
+  <!-- 하단 제어 영역: 직접 금액 입력 중심으로 구성 -->
+  <footer class="relative z-30 w-full max-w-md px-6 pb-8 flex flex-col items-center gap-4">
+    <div class="w-full glass-panel rounded-2xl p-4 flex items-center justify-around shadow-2xl">
+      <!-- 사용자 지출 금액 직접 입력 버튼 💸 -->
+      <button onclick="openSpentInputModal()" class="flex-1 flex items-center justify-center gap-2 py-3 px-4 mx-1 rounded-xl bg-amber-900/40 hover:bg-amber-800/60 border border-amber-500/30 text-amber-200 active:scale-95 transition-all" title="지출 금액 입력">
+        <span class="text-xl">💸</span>
+        <div class="flex flex-col items-start">
+          <span class="text-[10px] text-amber-400/80 font-serif-title uppercase">SPENT</span>
+          <span id="currentSpentText" class="text-sm font-bold text-amber-100">0원</span>
+        </div>
+      </button>
+
+      <div class="h-8 w-[1px] bg-amber-500/20"></div>
+
+      <!-- 사용자 목표 금액 직접 설정 버튼 🎯 -->
+      <button onclick="openGoalInputModal()" class="flex-1 flex items-center justify-center gap-2 py-3 px-4 mx-1 rounded-xl bg-amber-900/40 hover:bg-amber-800/60 border border-amber-500/30 text-amber-200 active:scale-95 transition-all" title="목표 금액 설정">
+        <span class="text-xl">🎯</span>
+        <div class="flex flex-col items-start">
+          <span class="text-[10px] text-amber-400/80 font-serif-title uppercase">GOAL</span>
+          <span id="targetGoalText" class="text-sm font-bold text-amber-300">50만원</span>
+        </div>
+      </button>
+    </div>
+  </footer>
+
+  <!-- 복원된 마법 아우라 & 배경 테마 설정 패널 (🪄) -->
+  <aside 
+    id="controlsPanel" 
+    class="fixed right-6 top-20 z-50 w-72 sm:w-80 glass-panel rounded-2xl p-5 text-sm space-y-4 transition-all duration-300 transform translate-x-full opacity-0 pointer-events-none"
+  >
+    <div class="flex items-center justify-between border-b border-amber-500/20 pb-3">
+      <h2 class="font-serif-title font-bold text-amber-200 text-base flex items-center gap-2">
+        🪄 마법 아우라 설정
+      </h2>
+      <button id="closeControlsBtn" class="text-amber-400/60 hover:text-amber-200 p-1">✖️</button>
+    </div>
+
+    <!-- 배경 테마 선택 -->
+    <div class="space-y-2">
+      <label class="block text-xs font-semibold uppercase tracking-wider text-amber-300/80">배경 테마</label>
+      <div class="grid grid-cols-3 gap-2">
+        <button data-theme="warm" class="theme-btn px-2 py-2 rounded-lg bg-amber-900/40 border border-amber-500/40 hover:border-amber-400 text-xs text-amber-200">웜 앰버</button>
+        <button data-theme="dark" class="theme-btn px-2 py-2 rounded-lg bg-amber-950/40 border border-amber-800/40 hover:border-amber-400 text-xs text-amber-200">다크 럭셔리</button>
+        <button data-theme="gold" class="theme-btn px-2 py-2 rounded-lg bg-yellow-900/40 border border-yellow-600/40 hover:border-amber-400 text-xs text-amber-200">앤티크 골드</button>
+      </div>
+    </div>
+
+    <!-- 입자 밀도 조절 -->
+    <div class="space-y-1.5">
+      <div class="flex justify-between text-xs text-amber-200">
+        <span>배경 마법 입자 수</span>
+        <span id="particleCountValue">120</span>
+      </div>
+      <input type="range" id="particleCountSlider" min="30" max="250" value="120" class="w-full h-1.5 bg-amber-950/80 rounded-lg appearance-none cursor-pointer">
+    </div>
+
+    <!-- 마법 후광 강도 조절 -->
+    <div class="space-y-1.5">
+      <div class="flex justify-between text-xs text-amber-200">
+        <span>마법 광원 크기</span>
+        <span id="auraSizeValue">480px</span>
+      </div>
+      <input type="range" id="auraSizeSlider" min="250" max="700" value="480" class="w-full h-1.5 bg-amber-950/80 rounded-lg appearance-none cursor-pointer">
+    </div>
+
+    <!-- 속도 조절 -->
+    <div class="space-y-1.5">
+      <div class="flex justify-between text-xs text-amber-200">
+        <span>입자 이동 속도</span>
+        <span id="speedValue">1.0x</span>
+      </div>
+      <input type="range" id="speedSlider" min="2" max="30" value="10" class="w-full h-1.5 bg-amber-950/80 rounded-lg appearance-none cursor-pointer">
+    </div>
+
+    <!-- 궤적 이펙트 토글 -->
+    <div class="flex items-center justify-between pt-2 border-t border-amber-500/20">
+      <span class="text-xs text-amber-200 font-medium">터치/마우스 궤적 이펙트</span>
+      <label class="relative inline-flex items-center cursor-pointer">
+        <input type="checkbox" id="trailToggle" checked class="sr-only peer">
+        <div class="w-9 h-5 bg-amber-950 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-amber-300 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-700"></div>
+      </label>
+    </div>
+  </aside>
+
+   <!-- 카드 등록/관리 모달 (💳) -->
+  <div id="cardModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-panel w-full max-w-sm rounded-3xl p-6 flex flex-col gap-4 text-amber-100 relative shadow-2xl">
+      <div class="flex justify-between items-center border-b border-amber-500/20 pb-3">
+        <h3 class="font-serif-title font-bold text-amber-200 text-base">💳 카드 관리</h3>
+        <button onclick="closeCardModal()" class="text-amber-400/60 hover:text-amber-200 text-lg">✖️</button>
+      </div>
+
+      <div id="cardListContainer" class="flex flex-col gap-2.5 max-h-48 overflow-y-auto no-scrollbar"></div>
+
+      <div class="border-t border-amber-500/20 pt-4 flex flex-col gap-2.5">
+        <span class="text-xs text-amber-300 font-semibold">➕ 새로운 카드 추가</span>
+        <input type="text" id="newCardNameInput" placeholder="카드 이름 (예: 신한카드)" class="w-full bg-amber-950/60 border border-amber-500/30 rounded-xl px-3 py-2 text-sm text-amber-100 focus:outline-none focus:border-amber-400">
+        <input type="number" id="newCardGoalInput" placeholder="목표 금액 (원)" class="w-full bg-amber-950/60 border border-amber-500/30 rounded-xl px-3 py-2 text-sm text-amber-100 focus:outline-none focus:border-amber-400">
+        <button onclick="addNewCard()" class="w-full py-2.5 rounded-xl bg-amber-600/80 hover:bg-amber-500 text-amber-950 font-bold text-sm transition-all mt-1">
+          ✨ 카드 추가하기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 금액 직접 입력 모달 -->
+  <div id="inputModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-panel w-full max-w-xs rounded-3xl p-6 flex flex-col gap-4 text-amber-100 relative shadow-2xl">
+      <div class="flex justify-between items-center border-b border-amber-500/20 pb-3">
+        <h3 id="inputModalTitle" class="font-serif-title font-bold text-amber-200 text-base">금액 입력</h3>
+        <button onclick="closeInputModal()" class="text-amber-400/60 hover:text-amber-200 text-lg">✖️</button>
+      </div>
+      <div class="flex flex-col gap-3">
+        <input type="number" id="directAmountInput" placeholder="금액을 입력하세요 (원)" class="w-full bg-amber-950/60 border border-amber-500/30 rounded-xl px-3.5 py-2.5 text-base text-amber-100 focus:outline-none focus:border-amber-400">
+        <button onclick="confirmAmountInput()" class="w-full py-2.5 rounded-xl bg-amber-600/80 hover:bg-amber-500 text-amber-950 font-bold text-sm transition-all mt-1">
+          💾 입력 완료
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 자바스크립트 로직 -->
+  <script>
+    // --- 1. 카드 데이터 및 상태 관리 ---
+    let cards = JSON.parse(localStorage.getItem('spend_cards_v2')) || [
+      { id: 1, name: '메인 카드', spent: 100000, goal: 500000 }
+    ];
+    let activeCardId = cards[0] ? cards[0].id : null;
+    let currentInputMode = 'spent'; // 'spent' 또는 'goal'
+
+    // 5등분 단계별 GIF 및 이모티콘 설정
+    const stages = [
+      { gif: 'stage1.gif', emoji: '🌱' },
+      { gif: 'stage2.gif', emoji: '🌿' },
+      { gif: 'stage3.gif', emoji: '⭐' },
+      { gif: 'stage4.gif', emoji: '🔥' },
+      { gif: 'stage5.gif', emoji: '👑' }
+    ];
+
+    function updateUI() {
+      const card = cards.find(c => c.id === activeCardId);
+      if (!card) return;
+
+      document.getElementById('cardNameDisplay').textContent = card.name;
+      document.getElementById('currentSpentText').textContent = card.spent.toLocaleString() + '원';
+      document.getElementById('targetGoalText').textContent = (card.goal / 10000) + '만원';
+
+      // 5등분 계산
+      let ratio = card.goal > 0 ? (card.spent / card.goal) : 0;
+      if (ratio > 1) ratio = 1;
+      
+      let currentStep = Math.min(5, Math.floor(ratio * 5) + 1);
+      if (card.spent >= card.goal) currentStep = 5;
+
+      document.getElementById('currentStepBadge').textContent = currentStep + '단계';
+
+      const stageData = stages[currentStep - 1];
+      document.getElementById('characterGif').src = stageData.gif;
+      document.getElementById('statusEmoji').textContent = stageData.emoji;
+
+      // 프로그레스 바 업데이트
+      const indicators = document.querySelectorAll('.step-indicator');
+      indicators.forEach((el, index) => {
+        if (index < currentStep) {
+          el.className = 'step-indicator h-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)] transition-all duration-300';
+        } else {
+          el.className = 'step-indicator h-1.5 rounded-full bg-amber-500/30 transition-all duration-300';
+        }
+      });
+
+      localStorage.setItem('spend_cards_v2', JSON.stringify(cards));
+    }
+
+    // --- 2. 금액 직접 입력 모달 제어 ---
+    const inputModal = document.getElementById('inputModal');
+    const directAmountInput = document.getElementById('directAmountInput');
+
+    function openSpentInputModal() {
+      const card = cards.find(c => c.id === activeCardId);
+      if (!card) return;
+      currentInputMode = 'spent';
+      document.getElementById('inputModalTitle').textContent = '💸 지출 금액 직접 입력';
+      directAmountInput.value = card.spent;
+      inputModal.classList.remove('hidden');
+      directAmountInput.focus();
+    }
+
+    function openGoalInputModal() {
+      const card = cards.find(c => c.id === activeCardId);
+      if (!card) return;
+      currentInputMode = 'goal';
+      document.getElementById('inputModalTitle').textContent = '🎯 목표 금액 직접 입력';
+      directAmountInput.value = card.goal;
+      inputModal.classList.remove('hidden');
+      directAmountInput.focus();
+    }
+
+    function closeInputModal() {
+      inputModal.classList.add('hidden');
+    }
+
+    function confirmAmountInput() {
+      const card = cards.find(c => c.id === activeCardId);
+      if (!card) return;
+      const val = parseInt(directAmountInput.value);
+
+      if (isNaN(val) || val < 0) {
+        alert('올바른 금액을 입력해 주세요.');
+        return;
+      }
+
+      if (currentInputMode === 'spent') {
+        card.spent = val;
+      } else {
+        if (val === 0) {
+          alert('목표 금액은 0원 이상이어야 합니다.');
+          return;
+        }
+        card.goal = val;
+      }
+
+      closeInputModal();
+      updateUI();
+    }
+
+    // --- 3. 카드 모달 제어 ---
+    const cardModal = document.getElementById('cardModal');
+    document.getElementById('cardListBtn').addEventListener('click', () => {
+      renderCardList();
+      cardModal.classList.remove('hidden');
+    });
+
+    function closeCardModal() {
+      cardModal.classList.add('hidden');
+    }
+
+    function renderCardList() {
+      const container = document.getElementById('cardListContainer');
+      container.innerHTML = '';
+      cards.forEach(c => {
+        const isSelected = c.id === activeCardId;
+        const div = document.createElement('div');
+        div.className = `flex items-center justify-between p-3 rounded-2xl border transition-all ${isSelected ? 'bg-amber-900/50 border-amber-400' : 'bg-amber-950/40 border-amber-500/20'}`;
+        div.innerHTML = `
+          <div class="flex items-center gap-2 cursor-pointer flex-1" onclick="selectCard(${c.id})">
+            <span class="text-base">${isSelected ? '⭐' : '💳'}</span>
+            <div class="flex flex-col">
+              <span class="text-xs font-bold text-amber-200">${c.name}</span>
+              <span class="text-[10px] text-amber-400/70">목표: ${(c.goal).toLocaleString()}원</span>
+            </div>
+          </div>
+          <button onclick="deleteCard(${c.id})" class="text-xs text-amber-400/50 hover:text-red-400 p-2">🗑️</button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function selectCard(id) {
+      activeCardId = id;
+      closeCardModal();
+      updateUI();
+    }
+
+    function addNewCard() {
+      const nameInput = document.getElementById('newCardNameInput');
+      const goalInput = document.getElementById('newCardGoalInput');
+      const name = nameInput.value.trim();
+      const goal = parseInt(goalInput.value);
+
+      if (!name || isNaN(goal) || goal <= 0) {
+        alert('카드 이름과 올바른 목표 금액을 입력해 주세요!');
+        return;
+      }
+
+      const newId = cards.length > 0 ? Math.max(...cards.map(c => c.id)) + 1 : 1;
+      cards.push({ id: newId, name, spent: 0, goal });
+      activeCardId = newId;
+
+      nameInput.value = '';
+      goalInput.value = '';
+      renderCardList();
+      updateUI();
+    }
+
+    function deleteCard(id) {
+      if (cards.length <= 1) {
+        alert('최소 1개의 카드는 필요합니다!');
+        return;
+      }
+      cards = cards.filter(c => c.id !== id);
+      if (activeCardId === id) activeCardId = cards[0].id;
+      renderCardList();
+      updateUI();
+    }
+
+    // --- 4. 마법 입자 & 배경 애니메이션 엔진 (복원) ---
+    const canvas = document.getElementById('magicCanvas');
+    const ctx = canvas.getContext('2d');
+    const gradientBg = document.getElementById('gradientBg');
+    const magicAura = document.getElementById('magicAura');
+    
+    let width = canvas.width = window.innerWidth;
+    let height = canvas.height = window.innerHeight;
+
+    let config = {
+      particleCount: 120,
+      auraSize: 480,
+      speedMultiplier: 1.0,
+      trailEnabled: true
+    };
+
+    const themes = {
+      warm: { center: '#5c3616', mid: '#2b1609', outer: '#0e0602', particleColors: ['#ffd59e', '#d49446', '#8c5a2b', '#ffffff', '#ffeed6'] },
+      dark: { center: '#361b0d', mid: '#1a0b04', outer: '#050201', particleColors: ['#e6b87d', '#a36831', '#5e3814', '#ffe8cc', '#cca068'] },
+      gold: { center: '#734c19', mid: '#3d2509', outer: '#120b02', particleColors: ['#fff3b5', '#ffd700', '#daa520', '#b8860b', '#ffffff'] }
+    };
+
+    let currentTheme = themes.warm;
+    let particles = [];
+    let trailParticles = [];
+
+    class Particle {
+      constructor(isTrail = false, x = 0, y = 0) {
+        this.isTrail = isTrail;
+        this.reset(x, y);
+      }
+
+      reset(x = 0, y = 0) {
+        if (this.isTrail) {
+          this.x = x;
+          this.y = y;
+          this.vx = (Math.random() - 0.5) * 2.5;
+          this.vy = (Math.random() - 0.5) * 2.5 - 0.8;
+          this.size = Math.random() * 4 + 2;
+          this.alpha = 1;
+          this.decay = Math.random() * 0.02 + 0.015;
+          this.color = currentTheme.particleColors[Math.floor(Math.random() * currentTheme.particleColors.length)];
+          this.rotation = Math.random() * Math.PI * 2;
+          this.rotationSpeed = (Math.random() - 0.5) * 0.1;
+        } else {
+          this.x = Math.random() * width;
+          this.y = Math.random() * height;
+          this.vx = (Math.random() - 0.5) * 0.8;
+          this.vy = -Math.random() * 1.2 - 0.3;
+          this.size = Math.random() * 3.5 + 0.8;
+          this.alpha = Math.random() * 0.7 + 0.2;
+          this.pulseSpeed = Math.random() * 0.03 + 0.005;
+          this.pulse = Math.random() * Math.PI;
+          this.color = currentTheme.particleColors[Math.floor(Math.random() * currentTheme.particleColors.length)];
+        }
+      }
+
+      update() {
+        if (this.isTrail) {
+          this.x += this.vx;
+          this.y += this.vy;
+          this.alpha -= this.decay;
+          this.size *= 0.96;
+          this.rotation += this.rotationSpeed;
+        } else {
+          this.x += this.vx * config.speedMultiplier;
+          this.y += this.vy * config.speedMultiplier;
+          this.pulse += this.pulseSpeed;
+
+          if (this.y < -10 || this.x < -10 || this.x > width + 10) {
+            this.x = Math.random() * width;
+            this.y = height + 10;
+          }
+        }
+      }
+
+      draw() {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.alpha);
+        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = this.color;
+
+        if (this.isTrail) {
+          ctx.translate(this.x, this.y);
+          ctx.rotate(this.rotation);
+          ctx.beginPath();
+          ctx.moveTo(0, -this.size * 1.5);
+          ctx.lineTo(this.size * 0.5, 0);
+          ctx.lineTo(0, this.size * 1.5);
+          ctx.lineTo(-this.size * 0.5, 0);
+          ctx.closePath();
+          ctx.fill();
+        } else {
+          const currentSize = this.size + Math.sin(this.pulse) * 0.8;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, Math.max(0.2, currentSize), 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+    }
+
+    function initParticles() {
+      particles = [];
+      for (let i = 0; i < config.particleCount; i++) {
+        particles.push(new Particle(false));
+      }
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, width, height);
+
+      for (let i = 0; i < particles.length; i++) {
+        particles[i].update();
+        particles[i].draw();
+      }
+
+      for (let i = trailParticles.length - 1; i >= 0; i--) {
+        trailParticles[i].update();
+        trailParticles[i].draw();
+
+        if (trailParticles[i].alpha <= 0 || trailParticles[i].size <= 0.3) {
+          trailParticles.splice(i, 1);
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    function createTrail(x, y, count = 3) {
+      if (!config.trailEnabled) return;
+      for (let i = 0; i < count; i++) {
+        trailParticles.push(new Particle(true, x, y));
+      }
+    }
+
+    window.addEventListener('mousemove', (e) => createTrail(e.clientX, e.clientY, 2));
+    window.addEventListener('click', (e) => createTrail(e.clientX, e.clientY, 12));
+    window.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 0) createTrail(e.touches[0].clientX, e.touches[0].clientY, 3);
+    }, { passive: true });
+
+    window.addEventListener('resize', () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+      initParticles();
+    });
+
+    function applyTheme(themeKey) {
+      currentTheme = themes[themeKey] || themes.warm;
+      gradientBg.style.setProperty('--bg-center', currentTheme.center);
+      gradientBg.style.setProperty('--bg-mid', currentTheme.mid);
+      gradientBg.style.setProperty('--bg-outer', currentTheme.outer);
+      particles.forEach(p => {
+        p.color = currentTheme.particleColors[Math.floor(Math.random() * currentTheme.particleColors.length)];
+      });
+    }
+
+    // 마법 컨트롤 패널 바인딩 (🪄)
+    const controlsPanel = document.getElementById('controlsPanel');
+    const toggleControlsBtn = document.getElementById('toggleControlsBtn');
+    const closeControlsBtn = document.getElementById('closeControlsBtn');
+
+    function togglePanel(show) {
+      if (show) {
+        controlsPanel.classList.remove('translate-x-full', 'opacity-0', 'pointer-events-none');
+      } else {
+        controlsPanel.classList.add('translate-x-full', 'opacity-0', 'pointer-events-none');
+      }
+    }
+
+    toggleControlsBtn.addEventListener('click', () => {
+      const isHidden = controlsPanel.classList.contains('translate-x-full');
+      togglePanel(isHidden);
+    });
+
+    closeControlsBtn.addEventListener('click', () => togglePanel(false));
+
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        applyTheme(e.currentTarget.getAttribute('data-theme'));
+      });
+    });
+
+    document.getElementById('particleCountSlider').addEventListener('input', (e) => {
+      config.particleCount = parseInt(e.target.value);
+      document.getElementById('particleCountValue').textContent = config.particleCount;
+      initParticles();
+    });
+
+    document.getElementById('auraSizeSlider').addEventListener('input', (e) => {
+      config.auraSize = parseInt(e.target.value);
+      document.getElementById('auraSizeValue').textContent = config.auraSize + 'px';
+      magicAura.style.width = config.auraSize + 'px';
+      magicAura.style.height = config.auraSize + 'px';
+    });
+
+    document.getElementById('speedSlider').addEventListener('input', (e) => {
+      config.speedMultiplier = parseInt(e.target.value) / 10;
+      document.getElementById('speedValue').textContent = config.speedMultiplier.toFixed(1) + 'x';
+    });
+
+    document.getElementById('trailToggle').addEventListener('change', (e) => {
+      config.trailEnabled = e.target.checked;
+    });
+
+    // 초기화 실행
+    window.onload = () => {
+      applyTheme('warm');
+      initParticles();
+      animate();
+      updateUI();
+    };
+  </script>
+</body>
+</html>
